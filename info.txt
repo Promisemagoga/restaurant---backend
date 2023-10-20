@@ -1,0 +1,97 @@
+const express = require('express');
+const app = express();
+require('dotenv').config();
+
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Add your routes and other server logic here
+
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
+});
+
+// Route for the payment form
+app.get('/payment', (req, res) => {
+  res.render('payment-form'); // Render your payment form template
+});
+
+// Route to handle the payment submission
+app.post('/payment', async (req, res) => {
+  const { amount, currency, paymentMethodId, customerEmail } = req.body;
+
+  try {
+    // Create a payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency,
+      payment_method: paymentMethodId,
+      receipt_email: customerEmail,
+    });
+
+    // Return the client secret to complete the payment on the client side
+    res.send({ clientSecret: paymentIntent.client_secret });
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
+<form action="/payment" method="POST">
+  <input type="text" name="amount" placeholder="Amount" required>
+  <input type="text" name="currency" placeholder="Currency" required>
+  <input type="text" name="paymentMethodId" placeholder="Payment Method ID" required>
+  <input type="email" name="customerEmail" placeholder="Customer Email" required>
+  <button type="submit">Pay Now</button>
+</form>
+
+
+<script src="https://js.stripe.com/v3/"></script>
+
+<script>
+  const stripe = Stripe('your_public_key');
+
+  const form = document.querySelector('form');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const { amount, currency, paymentMethodId, customerEmail } = form.elements;
+
+    try {
+      // Create a payment intent on the server
+      const response = await fetch('/payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount.value,
+          currency: currency.value,
+          paymentMethodId: paymentMethodId.value,
+          customerEmail: customerEmail.value,
+        }),
+      });
+
+      const { clientSecret } = await response.json();
+
+      // Confirm the payment on the client side
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: {
+            // Add card details here
+          },
+        },
+      });
+
+      if (result.error) {
+        // Handle payment error
+        console.error(result.error.message);
+      } else {
+        // Payment successful
+        console.log('Payment successful');
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  });
+</script>
+
+
